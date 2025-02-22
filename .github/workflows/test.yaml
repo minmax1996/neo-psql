@@ -16,7 +16,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4  # Update to latest version for better compatibility
+        uses: actions/checkout@v4
 
       - name: Install Neovim
         run: |
@@ -34,29 +34,15 @@ jobs:
           vim.cmd [[packadd packer.nvim]]
           require('packer').startup(function(use)
             use 'wbthomason/packer.nvim'
-            use 'nvim-lua/plenary.nvim'  -- Dependency for testing
-            use { '${{ github.workspace }}', as = 'neo-psql' }  -- Use GitHub workspace for local plugin
+            use 'nvim-lua/plenary.nvim'
+            use { '${{ github.workspace }}', as = 'neo-psql' }
           end)
           EOF
 
       - name: Run PackerSync
         run: |
           nvim --headless -c 'autocmd User PackerComplete quitall' -c 'PackerSync'
-        # Ensures PackerSync completes before proceeding
-
-      - name: Debug Packer Installation
-        run: |
-          echo "Packer start directory:"
-          ls -la ~/.local/share/nvim/site/pack/packer/start/
-          echo "Neovim runtimepath:"
-          nvim --headless -c 'lua print(vim.inspect(vim.api.nvim_list_runtime_paths()))' -c 'qa'
-
-      - name: Verify plenary.nvim Availability
-        run: |
-          nvim --headless -c "lua print(vim.inspect(require('plenary')))" -c "qa" || { echo "Plenary not found"; exit 1; }
-        # Fail the step if plenary isn’t loaded
 
       - name: Run Tests
         run: |
           nvim --headless -c "PlenaryBustedDirectory lua/tests/ { minimal_init = '${{ github.workspace }}/.config/nvim/init.lua' }" -c "qa"
-        # Specify minimal_init to ensure the correct config is used
