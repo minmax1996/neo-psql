@@ -1,6 +1,10 @@
 name: Test Neovim Plugin
 
 on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
   pull_request:
     paths:
       - '**.lua'
