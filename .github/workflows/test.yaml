@@ -37,8 +37,14 @@ jobs:
             use 'nvim-lua/plenary.nvim'  -- Needed for testing
             use { vim.fn.getcwd(), as = 'neo-psql' }
           end)
+          require('plenary')  -- Ensure plenary is loaded
           EOF
           nvim --headless -c 'PackerSync' -c 'qa'
+
+      - name: Debug Installed Plugins
+        run: |
+          nvim --headless -c "lua print(vim.inspect(require('plenary')))" -c "qa"
+          nvim --headless -c "lua print(vim.inspect(require('neo-psql')))" -c "qa"
 
       - name: Run tests
         run: |
