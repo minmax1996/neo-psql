@@ -26,8 +26,12 @@ jobs:
         run: |
           git clone --depth 1 https://github.com/wbthomason/packer.nvim \
             ~/.local/share/nvim/site/pack/packer/start/packer.nvim
+      - name: Check if packer.nvim is installed
+        run: |
+          ls -la ~/.local/share/nvim/site/pack/packer/start/
 
-      - name: Install dependencies
+
+      - name: Setup Neovim and Install Dependencies
         run: |
           mkdir -p ~/.config/nvim
           cat <<EOF > ~/.config/nvim/init.lua
@@ -37,15 +41,20 @@ jobs:
             use 'nvim-lua/plenary.nvim'  -- Needed for testing
             use { vim.fn.getcwd(), as = 'neo-psql' }
           end)
-          require('plenary')  -- Ensure plenary is loaded
           EOF
-          nvim --headless -c 'PackerSync' -c 'qa'
 
-      - name: Debug Installed Plugins
+      - name: Run PackerSync
         run: |
-          nvim --headless -c "lua print(vim.inspect(require('plenary')))" -c "qa"
-          nvim --headless -c "lua print(vim.inspect(require('neo-psql')))" -c "qa"
+          nvim --headless -c 'autocmd User PackerComplete quitall' -c 'PackerSync' -c 'qa'
+ 
+      - name: Check if plenary.nvim is installed
+        run: |
+          ls -la ~/.local/share/nvim/site/pack/packer/start/
 
-      - name: Run tests
+      - name: Verify plenary.nvim in Neovim
         run: |
-          nvim --headless -c "lua require('plenary.test_harness').test_directory('./tests')" -c "qa"
+          nvim --headless -c "lua print(vim.inspect(require('plenary')))" -c "qa" || echo 'Plenary not found'
+
+      - name: Run Tests
+        run: |
+          nvim --headless -c "PlenaryBustedDirectory lua/tests/ { minimal = true }" -c "qa"
