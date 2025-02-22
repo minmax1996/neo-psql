@@ -26,12 +26,8 @@ jobs:
         run: |
           git clone --depth 1 https://github.com/wbthomason/packer.nvim \
             ~/.local/share/nvim/site/pack/packer/start/packer.nvim
-      - name: Check if packer.nvim is installed
-        run: |
-          ls -la ~/.local/share/nvim/site/pack/packer/start/
 
-
-      - name: Setup Neovim and Install Dependencies
+      - name: Setup Neovim Config
         run: |
           mkdir -p ~/.config/nvim
           cat <<EOF > ~/.config/nvim/init.lua
@@ -43,13 +39,17 @@ jobs:
           end)
           EOF
 
-      - name: Run PackerSync
+      - name: Install Plugins with Packer
         run: |
-          nvim --headless -c 'autocmd User PackerComplete quitall' -c 'PackerSync' -c 'qa'
- 
-      - name: Check if plenary.nvim is installed
+          nvim --headless -c 'PackerInstall' -c 'PackerCompile' -c 'qa'
+
+      - name: Check Installed Plugins
         run: |
           ls -la ~/.local/share/nvim/site/pack/packer/start/
+
+      - name: Verify Packer Compiled Output
+        run: |
+          ls -la ~/.config/nvim/plugin/
 
       - name: Verify plenary.nvim in Neovim
         run: |
