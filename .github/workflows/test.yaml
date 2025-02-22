@@ -1,0 +1,34 @@
+name: Test Neovim Plugin
+
+on:
+  pull_request:
+    paths:
+      - '**.lua'
+      - 'lua/tests/**'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Set up Neovim
+        uses: c4th/matrix-nvim-setup@v1
+
+      - name: Install dependencies
+        run: |
+          mkdir -p ~/.config/nvim
+          cat <<EOF > ~/.config/nvim/init.lua
+          vim.cmd [[packadd packer.nvim]]
+          require('packer').startup(function(use)
+            use 'wbthomason/packer.nvim'
+            use 'nvim-lua/plenary.nvim'  -- Needed for testing
+            use { vim.fn.getcwd(), as = 'neo-psql' }
+          end)
+          EOF
+          nvim --headless -c 'PackerSync' -c 'qa'
+
+      - name: Run tests
+        run: |
+          nvim --headless -c "lua require('plenary.test_harness').test_directory('./tests')" -c "qa"
