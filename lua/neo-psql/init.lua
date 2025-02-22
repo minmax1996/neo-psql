@@ -110,6 +110,9 @@ function M.list_connections()
                 end
                 actions.close(prompt_bufnr)
             end)
+            map('i', '<Esc>', function()
+                actions.close(prompt_bufnr)
+            end)
             return true
         end
     }):find()
