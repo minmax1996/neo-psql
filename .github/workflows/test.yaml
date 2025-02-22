@@ -16,11 +16,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4  # Update to latest version for better compatibility
 
       - name: Install Neovim
         run: |
-          sudo apt update && sudo apt install -y neovim
+          sudo apt-get update && sudo apt-get install -y neovim
 
       - name: Install packer.nvim
         run: |
@@ -34,25 +34,29 @@ jobs:
           vim.cmd [[packadd packer.nvim]]
           require('packer').startup(function(use)
             use 'wbthomason/packer.nvim'
-            use 'nvim-lua/plenary.nvim'  -- Needed for testing
-            use { vim.fn.getcwd(), as = 'neo-psql' }
+            use 'nvim-lua/plenary.nvim'  -- Dependency for testing
+            use { '${{ github.workspace }}', as = 'neo-psql' }  -- Use GitHub workspace for local plugin
           end)
           EOF
 
-      - name: Run PackerSync and Compile
+      - name: Run PackerSync
         run: |
-          nvim --headless -c 'PackerSync' -c 'PackerCompile' -c 'qa'
+          nvim --headless -c 'autocmd User PackerComplete quitall' -c 'PackerSync'
+        # Ensures PackerSync completes before proceeding
 
-      - name: Check Packer Compile Directory
+      - name: Debug Packer Installation
         run: |
+          echo "Packer start directory:"
           ls -la ~/.local/share/nvim/site/pack/packer/start/
-          ls -la ~/.config/nvim/plugin/
+          echo "Neovim runtimepath:"
+          nvim --headless -c 'lua print(vim.inspect(vim.api.nvim_list_runtime_paths()))' -c 'qa'
 
-      - name: Verify plenary.nvim in Neovim
+      - name: Verify plenary.nvim Availability
         run: |
-          nvim --headless -c "lua print(vim.inspect(require('plenary')))" -c "qa" || echo 'Plenary not found'
+          nvim --headless -c "lua print(vim.inspect(require('plenary')))" -c "qa" || { echo "Plenary not found"; exit 1; }
+        # Fail the step if plenary isn’t loaded
 
       - name: Run Tests
         run: |
-          nvim --headless -c "PlenaryBustedDirectory lua/tests/ { minimal = true }" -c "qa"
-
+          nvim --headless -c "PlenaryBustedDirectory lua/tests/ { minimal_init = '${{ github.workspace }}/.config/nvim/init.lua' }" -c "qa"
+        # Specify minimal_init to ensure the correct config is used
