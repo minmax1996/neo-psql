@@ -25,8 +25,18 @@ function M.run_sql_under_cursor()
         end_row = end_row + 1
     end
 
-    -- Extract the SQL query
-    local sql_lines = vim.list_slice(lines, start_row, end_row)
+    -- Extract the SQL query, ignoring comments
+    local sql_lines = {}
+    for i = start_row, end_row do
+        local line = lines[i]
+        -- Remove comments from the line
+        line = line:gsub("%-%-.*", "")
+        if line:match("%S") then  -- Ignore empty lines after removing comments
+            table.insert(sql_lines, line)
+        end
+    end
+
+    -- Concat lines to SQL query
     local sql_query = table.concat(sql_lines, " ")
     if sql_query == "" then
         print("No SQL found under cursor")
