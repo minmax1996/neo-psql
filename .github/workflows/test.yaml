@@ -17,8 +17,9 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v2
 
-      - name: Set up Neovim
-        uses: c4th/matrix-nvim-setup@v1
+      - name: Install Neovim
+        run: |
+          sudo apt update && sudo apt install -y neovim
 
       - name: Install dependencies
         run: |
