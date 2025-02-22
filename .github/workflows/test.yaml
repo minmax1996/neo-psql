@@ -39,16 +39,13 @@ jobs:
           end)
           EOF
 
-      - name: Install Plugins with Packer
+      - name: Run PackerSync and Compile
         run: |
-          nvim --headless -c 'PackerInstall' -c 'PackerCompile' -c 'qa'
+          nvim --headless -c 'PackerSync' -c 'PackerCompile' -c 'qa'
 
-      - name: Check Installed Plugins
+      - name: Check Packer Compile Directory
         run: |
           ls -la ~/.local/share/nvim/site/pack/packer/start/
-
-      - name: Verify Packer Compiled Output
-        run: |
           ls -la ~/.config/nvim/plugin/
 
       - name: Verify plenary.nvim in Neovim
@@ -58,3 +55,4 @@ jobs:
       - name: Run Tests
         run: |
           nvim --headless -c "PlenaryBustedDirectory lua/tests/ { minimal = true }" -c "qa"
+
