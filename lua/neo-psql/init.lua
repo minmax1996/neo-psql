@@ -39,65 +39,51 @@ function M.run_sql_under_cursor()
     }, function(input)
         if input then
             -- If Enter is pressed (input is not nil), execute the query
-            M.show_output(string.format("psql service=%s -c \"%s\"", M.current_service, sql_query))
+            M.show_output(string.format("psql service=%s -c \"%s\"", M.current_service, sql_query), bufnr)
         end
     end)
 end
 
-function M.show_output(cmd)
+function M.show_output(cmd, source_bufnr)
     local output = vim.fn.systemlist(cmd)
-
-    -- Check if an existing buffer with the name pattern "[SQL Output N]" exists
-    local existing_buf = nil
-    local existing_win = nil
+    local source_bufname = vim.api.nvim_buf_get_name(source_bufnr)
+    
+    -- Find existing SQL output buffers
+    local existing_output_buf = nil
     local last_n = 0
 
-    for _, win in ipairs(vim.api.nvim_list_wins()) do
-        local buf = vim.api.nvim_win_get_buf(win)
+    for _, buf in ipairs(vim.api.nvim_list_bufs()) do
         local bufname = vim.api.nvim_buf_get_name(buf)
         local n = tonumber(bufname:match("%[SQL Output (%d+)%]"))
-
         if n then
-            existing_buf = buf
-            existing_win = win
+            existing_output_buf = buf
             last_n = math.max(last_n, n)
         end
     end
 
-    if existing_buf then
-        -- Reuse existing buffer: clear it and insert new output
-        vim.api.nvim_set_current_win(existing_win) -- Switch to the existing window
-        vim.api.nvim_buf_set_lines(existing_buf, 0, -1, false, output)
-
-        -- Move cursor to the beginning of the buffer
-        vim.api.nvim_win_set_cursor(existing_win, {1, 0})
-
-    else
-        -- Find the next available buffer name
-        local new_bufname = string.format("[SQL Output %d]", last_n + 1)
-
-        -- Open a new bottom split
+    if existing_output_buf then
+        -- Open a new tab with the source SQL file and a new SQL output buffer
+        vim.cmd("tabnew " .. source_bufname)
         vim.cmd("botright new")
-
-        -- Get the new buffer
-        local buf = vim.api.nvim_get_current_buf()
-
-        -- Set buffer options
-        vim.cmd("setlocal buftype=nofile")
-        vim.cmd("setlocal bufhidden=wipe")
-
-        -- Ensure the buffer name does not already exist before setting
-        if vim.fn.bufexists(new_bufname) == 0 then
-            vim.api.nvim_buf_set_name(buf, new_bufname)
-        end
-
-        -- Insert SQL output into the buffer
-        vim.api.nvim_buf_set_lines(buf, 0, -1, false, output)
-
-        -- Move cursor to the beginning of the buffer
-        vim.api.nvim_win_set_cursor(0, {1, 0})
-
+    else
+        -- Open a horizontal split for the SQL output
+        vim.cmd("botright new")
     end
+
+    local buf = vim.api.nvim_get_current_buf()
+    local new_bufname = string.format("[SQL Output %d]", last_n + 1)
+
+    -- Set buffer options
+    vim.cmd("setlocal buftype=nofile")
+    vim.cmd("setlocal bufhidden=wipe")
+    
+    if vim.fn.bufexists(new_bufname) == 0 then
+        vim.api.nvim_buf_set_name(buf, new_bufname)
+    end
+
+    -- Insert SQL output into the buffer
+    vim.api.nvim_buf_set_lines(buf, 0, -1, false, output)
+    vim.api.nvim_win_set_cursor(0, {1, 0})
 end
 
 -- Function to list available database connections
