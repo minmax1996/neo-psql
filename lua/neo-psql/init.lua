@@ -49,7 +49,7 @@ function M.run_sql_under_cursor()
     }, function(input)
         if input then
             -- If Enter is pressed (input is not nil), execute the query
-            M.show_output(string.format("psql service=%s -c \"%s\"", M.current_service, sql_query), bufnr)
+            --M.show_output(string.format("psql service=%s -c \"%s\"", M.current_service, sql_query), bufnr)
         end
     end)
 end
