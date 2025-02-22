@@ -45,4 +45,4 @@ jobs:
 
       - name: Run Tests
         run: |
-          nvim --headless -c "PlenaryBustedDirectory lua/tests/ { minimal_init = '${{ github.workspace }}/.config/nvim/init.lua' }" -c "qa"
+          nvim --headless -c "PlenaryBustedDirectory lua/tests/ { minimal_init = '~/.config/nvim/init.lua' }" -c "qa"
