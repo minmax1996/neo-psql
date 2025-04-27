@@ -2,6 +2,41 @@ local M = {}
 
 -- Store selected database connection
 M.current_service = "default"
+-- Store database schema
+M.database_schema = {}
+
+-- Function to clean up psql output
+local function clean_psql_output(output)
+    local cleaned = {}
+    for _, line in ipairs(output) do
+        -- Skip header lines (containing dashes)
+        if not line:match("^%-+$") then
+            -- Skip empty lines and timing information
+            if line ~= "" and not line:match("^Time:") and not line:match("^%(%d+ row") then
+                -- Trim whitespace
+                local trimmed = line:gsub("^%s*(.-)%s*$", "%1")
+                table.insert(cleaned, trimmed)
+            end
+        end
+    end
+    return cleaned
+end
+
+-- Function to fetch and store database schema
+function M.fetch_database_schema(service)
+    local tables_cmd = string.format("psql service=%s -c \"SELECT tablename FROM pg_tables WHERE schemaname = 'public';\"", service)
+    local tables = clean_psql_output(vim.fn.systemlist(tables_cmd))
+    
+    M.database_schema[service] = {}
+    
+    for _, table_name in ipairs(tables) do
+        local columns_cmd = string.format(
+            "psql service=%s -c \"SELECT column_name, data_type FROM information_schema.columns WHERE table_name = '%s';\"",
+            service, table_name)
+        local columns = clean_psql_output(vim.fn.systemlist(columns_cmd))
+        M.database_schema[service][table_name] = columns
+    end
+end
 
 function M.run_sql_under_cursor()
     local bufnr = vim.api.nvim_get_current_buf()
@@ -98,7 +133,7 @@ end
 
 -- Function to list available database connections
 function M.list_connections()
-    local output = vim.fn.systemlist("grep '\\[.*\\]' ~/.pg_service.conf | tr -d '[]'")
+    local output = vim.fn.systemlist("grep '^\\[.*\\]' ~/.pg_service.conf | tr -d '[]'")
     if #output == 0 then
         print("No connections found in .pg_service.conf")
         return
@@ -117,6 +152,11 @@ function M.list_connections()
                 if selection then
                     M.current_service = selection.value
                     print("Switched to service:", selection.value)
+                    -- Fetch schema in background
+                    vim.schedule(function()
+                        M.fetch_database_schema(selection.value)
+                        print("Database schema loaded for:", selection.value)
+                    end)
                 end
                 actions.close(prompt_bufnr)
             end)
@@ -130,23 +170,66 @@ end
 
 -- Database Explorer: List tables and allow expansion for columns
 function M.database_explorer()
-    local cmd = string.format("psql service=%s -c \"SELECT tablename FROM pg_tables WHERE schemaname = 'public';\"",
-        M.current_service)
-    local tables = vim.fn.systemlist(cmd)
+    if not M.database_schema[M.current_service] then
+        print("No schema data available. Please select a database connection first.")
+        return
+    end
+
+    local tables = {}
+    for table_name, _ in pairs(M.database_schema[M.current_service]) do
+        table.insert(tables, table_name)
+    end
+
     if #tables == 0 then
         print("No tables found")
         return
     end
-    vim.ui.select(tables, {
-        prompt = "Select Table:"
-    }, function(table_choice)
-        if table_choice then
-            local column_cmd = string.format(
-                "psql service=%s -c \"SELECT column_name, data_type FROM information_schema.columns WHERE table_name = '%s';\"",
-                M.current_service, table_choice)
-            M.show_output(column_cmd)
+
+    require('telescope.pickers').new({}, {
+        prompt_title = "Database Explorer",
+        finder = require('telescope.finders').new_table({
+            results = tables,
+            entry_maker = function(entry)
+                return {
+                    value = entry,
+                    display = entry,
+                    ordinal = entry,
+                    preview_command = function(entry)
+                        local columns = M.database_schema[M.current_service][entry.value]
+                        local output = {"=== Table: " .. entry.value .. " ===", ""}
+                        for _, column in ipairs(columns) do
+                            table.insert(output, column)
+                        end
+                        return table.concat(output, "\n")
+                    end
+                }
+            end
+        }),
+        sorter = require('telescope.sorters').get_generic_fuzzy_sorter(),
+        previewer = require('telescope.previewers').new_buffer_previewer({
+            define_preview = function(self, entry)
+                local columns = M.database_schema[M.current_service][entry.value]
+                local output = {"=== Table: " .. entry.value .. " ===", ""}
+                for _, column in ipairs(columns) do
+                    table.insert(output, column)
+                end
+                vim.api.nvim_buf_set_lines(self.state.bufnr, 0, -1, false, output)
+            end
+        }),
+        attach_mappings = function(prompt_bufnr, map)
+            local actions = require('telescope.actions')
+            map('i', '<CR>', function()
+                local selection = require('telescope.actions.state').get_selected_entry()
+                if selection then
+                    actions.close(prompt_bufnr)
+                end
+            end)
+            map('i', '<Esc>', function()
+                actions.close(prompt_bufnr)
+            end)
+            return true
         end
-    end)
+    }):find()
 end
 
 -- Register commands
