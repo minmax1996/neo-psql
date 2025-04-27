@@ -1,44 +1,13 @@
 local M = {}
+local binder = require('neo-psql.binder')
 
 -- Store selected database connection
 M.current_service = "default"
 -- Store database schema
 M.database_schema = {}
 
--- Function to clean up psql output
-local function clean_psql_output(output)
-    local cleaned = {}
-    for _, line in ipairs(output) do
-        -- Skip header lines (containing dashes)
-        if not line:match("^%-+$") then
-            -- Skip empty lines and timing information
-            if line ~= "" and not line:match("^Time:") and not line:match("^%(%d+ row") then
-                -- Trim whitespace
-                local trimmed = line:gsub("^%s*(.-)%s*$", "%1")
-                table.insert(cleaned, trimmed)
-            end
-        end
-    end
-    return cleaned
-end
-
--- Function to fetch and store database schema
-function M.fetch_database_schema(service)
-    local tables_cmd = string.format("psql service=%s -c \"SELECT tablename FROM pg_tables WHERE schemaname = 'public';\"", service)
-    local tables = clean_psql_output(vim.fn.systemlist(tables_cmd))
-    
-    M.database_schema[service] = {}
-    
-    for _, table_name in ipairs(tables) do
-        local columns_cmd = string.format(
-            "psql service=%s -c \"SELECT column_name, data_type FROM information_schema.columns WHERE table_name = '%s';\"",
-            service, table_name)
-        local columns = clean_psql_output(vim.fn.systemlist(columns_cmd))
-        M.database_schema[service][table_name] = columns
-    end
-end
-
-function M.run_sql_under_cursor()
+-- Function to extract SQL query under cursor
+local function extract_sql_under_cursor()
     local bufnr = vim.api.nvim_get_current_buf()
     local cursor_row, _ = unpack(vim.api.nvim_win_get_cursor(0))
     local lines = vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)
@@ -72,25 +41,11 @@ function M.run_sql_under_cursor()
     end
 
     -- Concat lines to SQL query
-    local sql_query = table.concat(sql_lines, " ")
-    if sql_query == "" then
-        print("No SQL found under cursor")
-        return
-    end
-
-    -- Create a prompt to ask the user if they want to execute the SQL
-    vim.ui.input({
-        prompt = sql_query .. '\n' .. "Press Enter to execute the SQL, or Esc to cancel:"
-    }, function(input)
-        if input then
-            -- If Enter is pressed (input is not nil), execute the query
-            M.show_output(string.format("psql service=%s -c \"%s\"", M.current_service, sql_query), bufnr)
-        end
-    end)
+    return table.concat(sql_lines, " ")
 end
 
-function M.show_output(cmd, source_bufnr)
-    local output = vim.fn.systemlist(cmd)
+-- Function to show SQL output in a buffer
+local function show_sql_output(output, source_bufnr)
     local source_bufname = vim.api.nvim_buf_get_name(source_bufnr)
     
     -- Find existing SQL output buffers
@@ -131,6 +86,26 @@ function M.show_output(cmd, source_bufnr)
     vim.api.nvim_win_set_cursor(0, {1, 0})
 end
 
+-- Function to run SQL under cursor
+function M.run_sql_under_cursor()
+    local sql_query = extract_sql_under_cursor()
+    if sql_query == "" then
+        print("No SQL found under cursor")
+        return
+    end
+
+    -- Create a prompt to ask the user if they want to execute the SQL
+    vim.ui.input({
+        prompt = sql_query .. '\n' .. "Press Enter to execute the SQL, or Esc to cancel:"
+    }, function(input)
+        if input then
+            -- If Enter is pressed (input is not nil), execute the query
+            local output = binder.execute_query(M.current_service, sql_query)
+            show_sql_output(output, vim.api.nvim_get_current_buf())
+        end
+    end)
+end
+
 -- Function to list available database connections
 function M.list_connections()
     local output = vim.fn.systemlist("grep '^\\[.*\\]' ~/.pg_service.conf | tr -d '[]'")
@@ -154,7 +129,7 @@ function M.list_connections()
                     print("Switched to service:", selection.value)
                     -- Fetch schema in background
                     vim.schedule(function()
-                        M.fetch_database_schema(selection.value)
+                        M.database_schema = binder.fetch_database_schema(selection.value)
                         print("Database schema loaded for:", selection.value)
                     end)
                 end
