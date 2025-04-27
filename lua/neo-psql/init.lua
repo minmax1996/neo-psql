@@ -173,7 +173,7 @@ function M.database_explorer()
                         local columns = M.database_schema[M.current_service][entry.value]
                         local output = {"=== Table: " .. entry.value .. " ===", ""}
                         for _, column in ipairs(columns) do
-                            table.insert(output, column)
+                            table.insert(output, string.format("%s (%s)", column.name, column.type))
                         end
                         return table.concat(output, "\n")
                     end
@@ -186,7 +186,7 @@ function M.database_explorer()
                 local columns = M.database_schema[M.current_service][entry.value]
                 local output = {"=== Table: " .. entry.value .. " ===", ""}
                 for _, column in ipairs(columns) do
-                    table.insert(output, column)
+                    table.insert(output, string.format("%s (%s)", column.name, column.type))
                 end
                 vim.api.nvim_buf_set_lines(self.state.bufnr, 0, -1, false, output)
             end
