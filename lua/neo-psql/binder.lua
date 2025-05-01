@@ -68,4 +68,36 @@ function M.execute_query(service, query)
     return vim.fn.systemlist(cmd)
 end
 
+-- Function to parse TOML format
+function M.parse_toml_service_conf()
+    local file = io.open(os.getenv("HOME") .. "/.pg_service.conf", "r")
+    if not file then
+        return {}
+    end
+
+    local services = {}
+    local current_service = nil
+
+    for line in file:lines() do
+        -- Skip comments and empty lines
+        if not line:match("^%s*#") and not line:match("^%s*$") then
+            -- Check for service section
+            local service_name = line:match("^%s*%[(.-)%]%s*$")
+            if service_name then
+                current_service = service_name
+                services[current_service] = {}
+            elseif current_service then
+                -- Parse key-value pairs
+                local key, value = line:match("^%s*([^=]+)%s*=%s*(.-)%s*$")
+                if key and value then
+                    services[current_service][key:gsub("^%s*(.-)%s*$", "%1")] = value:gsub("^%s*(.-)%s*$", "%1")
+                end
+            end
+        end
+    end
+
+    file:close()
+    return services
+end
+
 return M 
