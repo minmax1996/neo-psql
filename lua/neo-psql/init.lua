@@ -1,44 +1,15 @@
 local M = {}
+local binder = require('neo-psql.binder')
+local config_manager = require('neo-psql.config.manager')
 
--- Store selected database connection
-M.current_service = "default"
+-- Initialize configuration
+config_manager.load_config()
+
 -- Store database schema
 M.database_schema = {}
 
--- Function to clean up psql output
-local function clean_psql_output(output)
-    local cleaned = {}
-    for _, line in ipairs(output) do
-        -- Skip header lines (containing dashes)
-        if not line:match("^%-+$") then
-            -- Skip empty lines and timing information
-            if line ~= "" and not line:match("^Time:") and not line:match("^%(%d+ row") then
-                -- Trim whitespace
-                local trimmed = line:gsub("^%s*(.-)%s*$", "%1")
-                table.insert(cleaned, trimmed)
-            end
-        end
-    end
-    return cleaned
-end
-
--- Function to fetch and store database schema
-function M.fetch_database_schema(service)
-    local tables_cmd = string.format("psql service=%s -c \"SELECT tablename FROM pg_tables WHERE schemaname = 'public';\"", service)
-    local tables = clean_psql_output(vim.fn.systemlist(tables_cmd))
-    
-    M.database_schema[service] = {}
-    
-    for _, table_name in ipairs(tables) do
-        local columns_cmd = string.format(
-            "psql service=%s -c \"SELECT column_name, data_type FROM information_schema.columns WHERE table_name = '%s';\"",
-            service, table_name)
-        local columns = clean_psql_output(vim.fn.systemlist(columns_cmd))
-        M.database_schema[service][table_name] = columns
-    end
-end
-
-function M.run_sql_under_cursor()
+-- Function to extract SQL query under cursor
+local function extract_sql_under_cursor()
     local bufnr = vim.api.nvim_get_current_buf()
     local cursor_row, _ = unpack(vim.api.nvim_win_get_cursor(0))
     local lines = vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)
@@ -72,26 +43,13 @@ function M.run_sql_under_cursor()
     end
 
     -- Concat lines to SQL query
-    local sql_query = table.concat(sql_lines, " ")
-    if sql_query == "" then
-        print("No SQL found under cursor")
-        return
-    end
-
-    -- Create a prompt to ask the user if they want to execute the SQL
-    vim.ui.input({
-        prompt = sql_query .. '\n' .. "Press Enter to execute the SQL, or Esc to cancel:"
-    }, function(input)
-        if input then
-            -- If Enter is pressed (input is not nil), execute the query
-            M.show_output(string.format("psql service=%s -c \"%s\"", M.current_service, sql_query), bufnr)
-        end
-    end)
+    return table.concat(sql_lines, " ")
 end
 
-function M.show_output(cmd, source_bufnr)
-    local output = vim.fn.systemlist(cmd)
+-- Function to show SQL output in a buffer
+local function show_sql_output(output, source_bufnr)
     local source_bufname = vim.api.nvim_buf_get_name(source_bufnr)
+    local config = config_manager.get_config()
     
     -- Find existing SQL output buffers
     local existing_output_buf = nil
@@ -131,18 +89,63 @@ function M.show_output(cmd, source_bufnr)
     vim.api.nvim_win_set_cursor(0, {1, 0})
 end
 
+-- Function to run SQL under cursor
+function M.run_sql_under_cursor()
+    local sql_query = extract_sql_under_cursor()
+    if sql_query == "" then
+        print("No SQL found under cursor")
+        return
+    end
+
+    local config = config_manager.get_config()
+    
+    -- Create a prompt to ask the user if they want to execute the SQL
+    if config.confirm_execution then
+        vim.ui.input({
+            prompt = sql_query .. '\n' .. "Press Enter to execute the SQL, or Esc to cancel:"
+        }, function(input)
+            if input then
+                -- If Enter is pressed (input is not nil), execute the query
+                local output = binder.execute_query(M.current_service, sql_query)
+                show_sql_output(output, vim.api.nvim_get_current_buf())
+            end
+        end)
+    else
+        -- Execute query directly without confirmation
+        local output = binder.execute_query(M.current_service, sql_query)
+        show_sql_output(output, vim.api.nvim_get_current_buf())
+    end
+end
+
 -- Function to list available database connections
 function M.list_connections()
-    local output = vim.fn.systemlist("grep '^\\[.*\\]' ~/.pg_service.conf | tr -d '[]'")
-    if #output == 0 then
+    local services = binder.parse_toml_service_conf()
+    if not next(services) then
         print("No connections found in .pg_service.conf")
         return
     end
+
+    -- Convert services table to array for telescope
+    local service_entries = {}
+    for name, config in pairs(services) do
+        table.insert(service_entries, {
+            name = name,
+            config = config
+        })
+    end
+
     -- Use telescope for selection
     require('telescope.pickers').new({}, {
         prompt_title = "Select Database Connection",
         finder = require('telescope.finders').new_table({
-            results = output
+            results = service_entries,
+            entry_maker = function(entry)
+                return {
+                    value = entry,
+                    display = entry.name,
+                    ordinal = entry.name
+                }
+            end
         }),
         sorter = require('telescope.sorters').get_generic_fuzzy_sorter(),
         attach_mappings = function(prompt_bufnr, map)
@@ -150,12 +153,16 @@ function M.list_connections()
             map('i', '<CR>', function()
                 local selection = require('telescope.actions.state').get_selected_entry()
                 if selection then
-                    M.current_service = selection.value
-                    print("Switched to service:", selection.value)
+                    M.current_service = selection.value.name
+                    print("Switched to service:", selection.value.name)
                     -- Fetch schema in background
                     vim.schedule(function()
-                        M.fetch_database_schema(selection.value)
-                        print("Database schema loaded for:", selection.value)
+                        local config = config_manager.get_config()
+                        if config.extensions.psql.after_selection then
+                            config.extensions.psql.after_selection(selection.value)
+                        end
+                        M.database_schema = binder.fetch_database_schema(selection.value.name)
+                        print("Database schema loaded for:", selection.value.name)
                     end)
                 end
                 actions.close(prompt_bufnr)
@@ -198,7 +205,7 @@ function M.database_explorer()
                         local columns = M.database_schema[M.current_service][entry.value]
                         local output = {"=== Table: " .. entry.value .. " ===", ""}
                         for _, column in ipairs(columns) do
-                            table.insert(output, column)
+                            table.insert(output, string.format("%s (%s)", column.name, column.type))
                         end
                         return table.concat(output, "\n")
                     end
@@ -211,7 +218,7 @@ function M.database_explorer()
                 local columns = M.database_schema[M.current_service][entry.value]
                 local output = {"=== Table: " .. entry.value .. " ===", ""}
                 for _, column in ipairs(columns) do
-                    table.insert(output, column)
+                    table.insert(output, string.format("%s (%s)", column.name, column.type))
                 end
                 vim.api.nvim_buf_set_lines(self.state.bufnr, 0, -1, false, output)
             end
@@ -236,6 +243,11 @@ end
 vim.api.nvim_create_user_command("RunSQL", M.run_sql_under_cursor, {})
 vim.api.nvim_create_user_command("DBSwitch", M.list_connections, {})
 vim.api.nvim_create_user_command("DBExplorer", M.database_explorer, {})
+
+-- Function to setup the plugin with custom configuration
+function M.setup(user_config)
+    config_manager.load_config(user_config)
+end
 
 return M
 
