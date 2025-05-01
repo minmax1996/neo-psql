@@ -69,6 +69,8 @@ This will list all available services from `.pg_service.conf` and allow you to s
 
 ## Configuration
 
+### Database Connections
+
 Ensure you have your `.pg_service.conf` properly set up. Example:
 
 ```ini
@@ -77,6 +79,60 @@ host=localhost
 dbname=mydatabase
 user=myuser
 ```
+
+### Plugin Configuration
+
+The plugin uses default configuration, but you can override it by creating a custom configuration file. To create the default configuration:
+
+```bash
+# Create the configuration directory if it doesn't exist
+mkdir -p ~/.config/nvim/lua/config
+
+# Create a default configuration file
+cat > ~/.config/nvim/lua/config/neo-psql.lua << 'EOF'
+return {
+    -- SQL execution settings
+    confirm_execution = false,  -- Set to false to execute SQL without confirmation
+    
+    -- Custom extensions
+    extensions = {
+        psql = {
+            ---@type fun(selection: {name: string, config: table}): nil
+            ---Executes after a database selection is made
+            ---@param selection table The selected database configuration
+            ---@param selection.name string The name of the selected database
+            ---@param selection.config table The configuration table containing database settings from ./pg_services
+            after_selection = function(selection)
+                -- Example: Print selected database
+                print("Selected database:", selection.name)
+            end,
+            
+            -- Additional settings
+            settings = {
+                -- Add any custom settings here
+            }
+        }
+    }
+}
+EOF
+```
+
+Available configuration options:
+
+- `confirm_execution` (boolean):
+  - `true`: Ask for confirmation before executing SQL (default)
+  - `false`: Execute SQL immediately
+
+- `extensions.psql.after_selection` (function):
+  - Called after a database is selected
+  - Receives a `selection` object with:
+    - `name`: Database name
+    - `config`: Database configuration (host, port, user, etc.)
+
+- `extensions.psql.settings` (table):
+  - Placeholder for additional settings
+
+The plugin will automatically use this configuration if the file exists. If the file doesn't exist, it will use the default configuration.
 
 ## Contributing
 
