@@ -88,33 +88,8 @@ The plugin uses default configuration, but you can override it by creating a cus
 # Create the configuration directory if it doesn't exist
 mkdir -p ~/.config/nvim/lua/config
 
-# Create a default configuration file
-cat > ~/.config/nvim/lua/config/neo-psql.lua << 'EOF'
-return {
-    -- SQL execution settings
-    confirm_execution = false,  -- Set to false to execute SQL without confirmation
-    
-    -- Custom extensions
-    extensions = {
-        psql = {
-            ---@type fun(selection: {name: string, config: table}): nil
-            ---Executes after a database selection is made
-            ---@param selection table The selected database configuration
-            ---@param selection.name string The name of the selected database
-            ---@param selection.config table The configuration table containing database settings from ./pg_services
-            after_selection = function(selection)
-                -- Example: Print selected database
-                print("Selected database:", selection.name)
-            end,
-            
-            -- Additional settings
-            settings = {
-                -- Add any custom settings here
-            }
-        }
-    }
-}
-EOF
+# Download the latest configuration file
+wget -O ~/.config/nvim/lua/config/neo-psql.lua https://raw.githubusercontent.com/minmax1996/neo-psql/main/lua/neo-psql/config/default.lua
 ```
 
 Available configuration options:
@@ -123,11 +98,20 @@ Available configuration options:
   - `true`: Ask for confirmation before executing SQL (default)
   - `false`: Execute SQL immediately
 
+
+- `extensions.psql.pre_selection` (function):
+  - Called before a database is selected
+  - Receives a `selection` object with:
+    - `name`: Database name
+    - `config`: Database configuration (host, port, user, etc.)
+  - can be used for unset PGPASSWORD from other connection during 1 session
+
 - `extensions.psql.after_selection` (function):
   - Called after a database is selected
   - Receives a `selection` object with:
     - `name`: Database name
     - `config`: Database configuration (host, port, user, etc.)
+  - can be used for set PGPASSWORD from some sort of token-generational tools, for example `aws rds generate-db-auth-token` (see examples dir)
 
 - `extensions.psql.settings` (table):
   - Placeholder for additional settings

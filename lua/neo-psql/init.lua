@@ -153,6 +153,9 @@ function M.list_connections()
             map('i', '<CR>', function()
                 local selection = require('telescope.actions.state').get_selected_entry()
                 if selection then
+                    if config.extensions.psql.pre_selection then
+                        config.extensions.psql.pre_selection(selection.value)
+                    end
                     M.current_service = selection.value.name
                     print("Switched to service:", selection.value.name)
                     -- Fetch schema in background

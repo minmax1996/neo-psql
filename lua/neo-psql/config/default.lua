@@ -8,6 +8,13 @@ M.default = {
     extensions = {
         psql = {
             ---@type fun(selection: {name: string, config: table}): nil
+            ---Executes before a database selection is made
+            ---@param selection table The selected database configuration
+            ---@param selection.name string The name of the selected database
+            ---@param selection.config table The configuration table containing database settings
+            pre_selection = nil,
+            
+            ---@type fun(selection: {name: string, config: table}): nil
             ---Executes after a database selection is made
             ---@param selection table The selected database configuration
             ---@param selection.name string The name of the selected database
