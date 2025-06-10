@@ -24,6 +24,7 @@ M.default = {
             after_selection = function(selection)
                 if string.match(selection.name, "aws%-cli$") then
                     -- Get password from AWS CLI
+                    -- TODO handle error
                     local cmd = string.format('aws rds generate-db-auth-token --hostname %s --port %s --region %s --username %s',
                         selection.config.host, selection.config.port or "5432", "us-east-2", selection.config.user)
                     os.execute(string.format('export PGPASSWORD=$(%s)', cmd))
