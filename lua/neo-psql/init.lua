@@ -164,12 +164,13 @@ function M.list_connections()
                         config.extensions.psql.after_selection(selection.value)
                     end
 
+                    local config = config_manager.get_config()
+                    if config.extensions.psql.after_selection then
+                        config.extensions.psql.after_selection(selection.value)
+                    end
+
                     -- Fetch schema in background
                     vim.schedule(function()
-                        local config = config_manager.get_config()
-                        if config.extensions.psql.after_selection then
-                            config.extensions.psql.after_selection(selection.value)
-                        end
                         M.database_schema = binder.fetch_database_schema(selection.value.name)
                         print("Database schema loaded for:", selection.value.name)
                     end)
