@@ -153,11 +153,17 @@ function M.list_connections()
             map('i', '<CR>', function()
                 local selection = require('telescope.actions.state').get_selected_entry()
                 if selection then
+                    local config = config_manager.get_config()
                     if config.extensions.psql.pre_selection then
                         config.extensions.psql.pre_selection(selection.value)
                     end
+                    
                     M.current_service = selection.value.name
                     print("Switched to service:", selection.value.name)
+                    if config.extensions.psql.after_selection then
+                        config.extensions.psql.after_selection(selection.value)
+                    end
+
                     -- Fetch schema in background
                     vim.schedule(function()
                         local config = config_manager.get_config()

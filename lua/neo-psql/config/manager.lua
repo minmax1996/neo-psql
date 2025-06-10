@@ -27,7 +27,12 @@ function M.load_config(user_config)
     
     -- Merge with user configuration if provided
     if user_config then
-        M.current = merge_tables(M.current, user_config)
+        -- If user config has a default table, use that for merging
+        if user_config.default then
+            M.current = merge_tables(M.current, user_config.default)
+        else
+            M.current = merge_tables(M.current, user_config)
+        end
     end
     
     return M.current
