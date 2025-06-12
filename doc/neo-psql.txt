@@ -1,0 +1,71 @@
+*neo-psql.txt*  A plugin to provide wrapper functionality for psql from neovim
+
+==============================================================================
+INTRODUCTION                                                      *neo-psql-intro*
+
+neo-psql is a Neovim plugin that provides a convenient interface for working with
+PostgreSQL databases directly from Neovim. It allows you to execute SQL queries,
+explore database schemas, and manage database connections.
+
+==============================================================================
+INSTALLATION                                                  *neo-psql-install*
+
+Using your favorite plugin manager:
+
+vim-plug:
+    Plug 'minmax1996/neo-psql'
+
+packer.nvim:
+    use 'minmax1996/neo-psql'
+
+==============================================================================
+USAGE                                                              *neo-psql-usage*
+
+Commands:
+    :RunSQL        Execute the SQL query under the cursor
+    :DBSwitch      Switch between available database connections
+    :DBExplorer    Explore database tables and their columns
+
+Configuration:
+    Create a configuration file at ~/.config/nvim/lua/config/neo-psql.lua:
+
+    ```lua
+    return {
+        confirm_execution = true,  -- Ask for confirmation before executing SQL
+        extensions = {
+            psql = {
+                -- Pre-selection hook
+                pre_selection = function(selection)
+                    -- Your code here
+                end,
+                -- Post-selection hook
+                after_selection = function(selection)
+                    -- Your code here
+                end,
+                settings = {}
+            }
+        }
+    }
+    ```
+
+==============================================================================
+FUNCTIONS                                                      *neo-psql-functions*
+
+run_sql_under_cursor()~
+    Execute the SQL query under the cursor.
+
+list_connections()~
+    List and switch between available database connections.
+
+database_explorer()~
+    Explore database tables and their columns.
+
+==============================================================================
+AUTHOR                                                          *neo-psql-author*
+
+Maxim Minaev <https://github.com/minmax1996>
+
+==============================================================================
+LICENSE                                                          *neo-psql-license*
+
+MIT License 
