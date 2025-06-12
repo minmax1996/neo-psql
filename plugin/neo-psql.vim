@@ -23,6 +23,7 @@ EOF
 " Register commands
 command! -nargs=0 RunSQL lua require("neo-psql").run_sql({range = 0})
 command! -range RunSQL lua require("neo-psql").run_sql({range = <range>, line1 = <line1>, line2 = <line2>})
-command! -nargs=0 DBSwitch lua require("neo-psql").list_connections()
+command! -nargs=? DBSwitch lua require("neo-psql").list_connections({load_schema = vim.fn.expand("<args>") == "-load-schema"})
+command! -nargs=0 LoadSchema lua require("neo-psql").load_schema(true)
 command! -nargs=0 DBExplorer lua require("neo-psql").database_explorer()
 

@@ -4,6 +4,11 @@ local M = {}
 M.default = {
     -- SQL execution settings
     confirm_execution = true,
+    -- Cache settings
+    cache = {
+        -- Cache invalidation period in days (-1 to disable invalidation, 0 to invalidate on every load)
+        invalidate_after_days = 30
+    },
     -- Custom extensions
     extensions = {
         psql = {

@@ -46,8 +46,23 @@ function M.run_sql(opts)
     end
 end
 
+-- Function to load schema for current service
+function M.load_schema(force)
+    if not M.current_service then
+        print("No database service selected")
+        return
+    end
+    local loaded_from_cache = false
+    M.database_schema, loaded_from_cache = schema.fetch_database_schema(M.current_service, force)
+    if loaded_from_cache then
+        print("Database schema loaded from cache for:", M.current_service)
+    else
+        print("Database schema loaded for:", M.current_service)
+    end
+end
+
 -- Function to list available database connections
-function M.list_connections()
+function M.list_connections(opts)
     local services = psql.get_services()
     
     telescope.show_connection_picker(services, function(selection)
@@ -65,8 +80,7 @@ function M.list_connections()
 
         -- Fetch schema in background
         vim.schedule(function()
-            M.database_schema = schema.fetch_database_schema(selection.name)
-            print("Database schema loaded for:", selection.name)
+            M.load_schema(opts and opts.load_schema)
         end)
     end)
 end
@@ -85,7 +99,15 @@ end
 vim.api.nvim_create_user_command("RunSQL", function(opts)
     M.run_sql({range = opts.range, line1 = opts.line1, line2 = opts.line2})
 end, { range = true })
-vim.api.nvim_create_user_command("DBSwitch", M.list_connections, {})
+
+vim.api.nvim_create_user_command("DBSwitch", function(opts)
+    M.list_connections({load_schema = opts.args == "-load-schema"})
+end, { nargs = "?" })
+
+vim.api.nvim_create_user_command("LoadSchema", function(opts)
+    M.load_schema(true)
+end, {})
+
 vim.api.nvim_create_user_command("DBExplorer", M.database_explorer, {})
 
 return M
