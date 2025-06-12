@@ -13,11 +13,16 @@ local telescope = require('neo-psql.ui.telescope')
 M.database_schema = {}
 M.current_service = nil
 
--- Function to run SQL under cursor
-function M.run_sql_under_cursor()
-    local sql_query = buffer.extract_sql_under_cursor()
+function M.run_sql(opts) 
+    local sql_query
+    if opts.range == 0 then
+        sql_query = buffer.extract_sql_under_cursor()
+    else
+        sql_query = buffer.extract_sql_from_range(opts.line1, opts.line2)
+    end
+
     if sql_query == "" then
-        print("No SQL found under cursor")
+        print("No SQL found")
         return
     end
 
@@ -77,7 +82,9 @@ function M.setup(user_config)
 end
 
 -- Register commands
-vim.api.nvim_create_user_command("RunSQL", M.run_sql_under_cursor, {})
+vim.api.nvim_create_user_command("RunSQL", function(opts)
+    M.run_sql({range = opts.range, line1 = opts.line1, line2 = opts.line2})
+end, { range = true })
 vim.api.nvim_create_user_command("DBSwitch", M.list_connections, {})
 vim.api.nvim_create_user_command("DBExplorer", M.database_explorer, {})
 
