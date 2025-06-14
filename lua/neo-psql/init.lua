@@ -15,10 +15,10 @@ M.current_service = nil
 
 function M.run_sql(opts) 
     local sql_query
-    if opts.range == 0 then
-        sql_query = buffer.extract_sql_under_cursor()
-    else
+    if opts.range ~= 0 then
         sql_query = buffer.extract_sql_from_range(opts.line1, opts.line2)
+    else
+        sql_query = buffer.extract_sql_under_cursor()
     end
 
     if sql_query == "" then

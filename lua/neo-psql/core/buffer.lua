@@ -54,10 +54,13 @@ function M.extract_sql_from_range(start_line, end_line)
     return extract_sql_from_lines(lines, start_line, end_line)
 end
 
--- Placeholder for visual selection (to be implemented)
+-- Function to extract SQL from visual selection
 function M.extract_sql_from_visual_selection()
-    -- TODO: Implement visual selection extraction
-    return ""
+    local start_pos = vim.fn.getpos("'<")
+    local end_pos = vim.fn.getpos("'>")
+
+    local text = vim.api.nvim_buf_get_text(0, start_pos[2] - 1, start_pos[3] - 1, end_pos[2] - 1, end_pos[3] - 1, {})
+    return extract_sql_from_lines(text, 1, #text)
 end
 
 return M 
