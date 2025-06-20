@@ -16,7 +16,12 @@ M.current_service = nil
 function M.run_sql(opts) 
     local sql_query
     if opts.range ~= 0 then
-        sql_query = buffer.extract_sql_from_range(opts.line1, opts.line2)
+        local start_pos, end_pos = vim.fn.getpos("'<"), vim.fn.getpos("'>")
+        if start_pos[2] > 0 or start_pos[3] > 0 then    
+            sql_query = buffer.extract_sql_from_visual_selection(start_pos, end_pos)
+        else
+            sql_query = buffer.extract_sql_from_range(opts.line1, opts.line2)
+        end
     else
         sql_query = buffer.extract_sql_under_cursor()
     end
